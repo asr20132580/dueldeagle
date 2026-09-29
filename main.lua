@@ -16,7 +16,7 @@ local S = {
         Chams=false, ChamFill=true, ChamOutline=true, ChamFillTransparency=0.4,
         Skeleton=false, SkeletonThickness=1.5, SkeletonColor=Color3.fromRGB(255,255,255),
         HeadDot=false, HeadDotRadius=4,
-        Name=false, Health=false, Distance=false, Weapon=false,
+        Name=false, Health=false, Distance=false,
         Tracer=false, TracerOrigin="Bottom", TracerThickness=1.5,
         TracerColor=Color3.fromRGB(255,50,50),
         IgnoreAFK=false, AFKSeconds=3,
@@ -33,14 +33,12 @@ local S = {
         Contrast=0.2,
         Brightness=0,
     },
-    Local = { SelfColor=Color3.fromRGB(0,200,255), SelfFill=true, SelfOutline=true, WeaponChams=false },
     Movement = { BunnyHop=false, AutoStrafe=false, Speed=false, SpeedValue=22, JumpPower=false, JumpValue=50 },
     Menu = {
         Glass = true,
         AccentColor = Color3.fromRGB(120,90,255),
         BgColor = Color3.fromRGB(20,20,30),
         StrokeColor = Color3.fromRGB(255,255,255),
-        TextColor = Color3.fromRGB(255,255,255),
         WatermarkPos = "TopCenter",
         ShowDarken = true,
         DarkenAmount = 0.3,
@@ -50,7 +48,6 @@ local S = {
 local CurrentAccent = S.Menu.AccentColor
 local CurrentBg = S.Menu.BgColor
 local CurrentStroke = S.Menu.StrokeColor
-local CurrentText = S.Menu.TextColor
 
 local toggleButtons = {}
 local toggleRows = {}
@@ -62,8 +59,7 @@ FOVCircle.Thickness=1; FOVCircle.Filled=false; FOVCircle.NumSides=40; FOVCircle.
 local FPS = 0
 local FrameCount = 0
 local LastFPSTime = os.clock()
-local EnemyChamsFill = {}
-local EnemyChamsOutline = {}
+local EnemyHighlights = {}
 
 -- ===== AFK =====
 local AFKTimer = {}
@@ -223,39 +219,33 @@ local function DrawSkeleton(char, col, thickness)
 end
 
 local function UpdateEnemyChams(enemies)
-    for plr, h in pairs(EnemyChamsFill) do
+    for plr, h in pairs(EnemyHighlights) do
         if h and h.Parent then h:Destroy() end
-        EnemyChamsFill[plr] = nil
-    end
-    for plr, h in pairs(EnemyChamsOutline) do
-        if h and h.Parent then h:Destroy() end
-        EnemyChamsOutline[plr] = nil
+        EnemyHighlights[plr] = nil
     end
     if not S.ESP.Chams then return end
     for _, e in ipairs(enemies) do
         if e.Character then
+            local h = Instance.new("Highlight")
+            h.Name = "MB_Chams"
+            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+            h.Adornee = e.Character
+            h.Parent = e.Character
+
             if S.ESP.ChamFill then
-                local h = Instance.new("Highlight")
-                h.Name = "MB_ChamFill"
                 h.FillColor = S.ESP.FillColor
                 h.FillTransparency = S.ESP.ChamFillTransparency
-                h.OutlineTransparency = 1
-                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                h.Adornee = e.Character
-                h.Parent = e.Character
-                EnemyChamsFill[e.Player] = h
+            else
+                h.FillTransparency = 1
             end
             if S.ESP.ChamOutline then
-                local h = Instance.new("Highlight")
-                h.Name = "MB_ChamOutline"
-                h.FillTransparency = 1
                 h.OutlineColor = S.ESP.Color
                 h.OutlineTransparency = 0
-                h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                h.Adornee = e.Character
-                h.Parent = e.Character
-                EnemyChamsOutline[e.Player] = h
+            else
+                h.OutlineTransparency = 1
             end
+
+            EnemyHighlights[e.Player] = h
         end
     end
 end
@@ -308,10 +298,6 @@ local function UpdateESP()
         if S.ESP.Name then Text(plr.Name, Vector2.new(cx, y-15), color, 13) end
         if S.ESP.Health then Text(math.floor(hum.Health).."/"..math.floor(hum.MaxHealth), Vector2.new(cx, y+boxH+2), color, 11) end
         if S.ESP.Distance then Text("["..math.floor(e.Distance).."m]", Vector2.new(cx, y+boxH+16), color, 11) end
-        if S.ESP.Weapon then
-            local tool = char:FindFirstChildOfClass("Tool")
-            if tool then Text(tool.Name, Vector2.new(cx, y+boxH+30), color, 11) end
-        end
         if S.ESP.Tracer then
             local origin
             if S.ESP.TracerOrigin == "Bottom" then origin = Vector2.new(Camera.ViewportSize.X/2, Camera.ViewportSize.Y)
@@ -402,63 +388,6 @@ local function UpdateWorldColor()
     end
 end
 
--- ===== LOCAL (Weapon Chams) =====
-local function FindViewModel()
-    for _, obj in ipairs(Camera:GetChildren()) do
-        if obj:IsA("Model") then return obj end
-    end
-    return nil
-end
-
-local function UpdateLocal()
-    local char = LP.Character
-    if char and S.Local.WeaponChams then
-        for _, tool in ipairs(char:GetChildren()) do
-            if tool:IsA("Tool") then
-                local h = tool:FindFirstChild("MB_SelfChams")
-                if not h then
-                    h = Instance.new("Highlight")
-                    h.Name = "MB_SelfChams"
-                    h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-                    h.Adornee = tool
-                    h.Parent = tool
-                end
-                h.FillTransparency = S.Local.SelfFill and 0 or 1
-                h.OutlineTransparency = S.Local.SelfOutline and 0 or 1
-                h.FillColor = S.Local.SelfColor
-                h.OutlineColor = S.Local.SelfColor
-            end
-        end
-    else
-        if char then
-            for _, tool in ipairs(char:GetChildren()) do
-                if tool:IsA("Tool") then
-                    local h = tool:FindFirstChild("MB_SelfChams")
-                    if h then h:Destroy() end
-                end
-            end
-        end
-    end
-    local vm = FindViewModel()
-    if vm and S.Local.WeaponChams then
-        local h = vm:FindFirstChild("MB_VMChams")
-        if not h then
-            h = Instance.new("Highlight")
-            h.Name = "MB_VMChams"
-            h.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-            h.Adornee = vm
-            h.Parent = vm
-        end
-        h.FillTransparency = S.Local.SelfFill and 0.3 or 1
-        h.OutlineTransparency = S.Local.SelfOutline and 0 or 1
-        h.FillColor = S.Local.SelfColor
-        h.OutlineColor = S.Local.SelfColor
-    elseif vm then
-        local h = vm:FindFirstChild("MB_VMChams")
-        if h then h:Destroy() end
-    end
-end
-
 -- ===== MOVEMENT =====
 local SpeedConn = nil
 local MovementHeartbeat = nil
@@ -543,7 +472,7 @@ local function CreateColorPicker(initialColor, onSave)
 
     local title = Instance.new("TextLabel")
     title.Size = UDim2.new(1, 0, 0, 28); title.BackgroundTransparency = 1
-    title.Text = "Выбор цвета"; title.TextColor3 = CurrentText
+    title.Text = "Выбор цвета"; title.TextColor3 = Color3.fromRGB(255,255,255)
     title.TextSize = 13; title.Font = Enum.Font.GothamBold; title.ZIndex = 501
     title.Parent = picker
 
@@ -604,7 +533,7 @@ local function CreateColorPicker(initialColor, onSave)
     preview.BackgroundColor3 = initialColor; preview.BorderSizePixel = 0
     preview.ZIndex = 501; preview.Parent = picker
     local pvCorner = Instance.new("UICorner"); pvCorner.CornerRadius = UDim.new(0,6); pvCorner.Parent = preview
-    local pvStroke = Instance.new("UIStroke"); pvStroke.Color = CurrentStroke; pvStroke.Transparency = 0.5; pvStroke.Parent = preview
+    local pvStroke = Instance.new("UIStroke"); pvStroke.Color = Color3.fromRGB(255,255,255); pvStroke.Transparency = 0.5; pvStroke.Parent = preview
 
     local cancelBtn = Instance.new("TextButton")
     cancelBtn.Size = UDim2.new(0, 70, 0, 26); cancelBtn.Position = UDim2.new(1, -165, 0, 240)
@@ -685,16 +614,19 @@ local WmText = Instance.new("TextLabel")
 WmText.Size = UDim2.new(1,-20,1,0); WmText.Position = UDim2.new(0,10,0,0)
 WmText.BackgroundTransparency = 1
 WmText.Text = "MasterBAN-Sense   |   TG: @MewNenti   |   FPS: 0   |   " .. LP.Name
-WmText.TextColor3 = CurrentText; WmText.TextSize = 14; WmText.Font = Enum.Font.GothamBold
+WmText.TextColor3 = Color3.fromRGB(255,255,255)
+WmText.TextStrokeTransparency = 0.5
+WmText.TextStrokeColor3 = Color3.fromRGB(0,0,0)
+WmText.TextSize = 14; WmText.Font = Enum.Font.GothamBold
 WmText.TextXAlignment = Enum.TextXAlignment.Center
 WmText.Parent = Watermark
 
 local function ApplyWatermarkStyle()
     Watermark.BackgroundColor3 = CurrentBg
-    Watermark.BackgroundTransparency = (S.Menu.Glass and 0.45 or 0.05)
+    Watermark.BackgroundTransparency = (S.Menu.Glass and 0.55 or 0.05)
     wms.Color = CurrentStroke
-    wms.Transparency = (S.Menu.Glass and 0.75 or 0.1)
-    WmText.TextColor3 = CurrentText
+    wms.Transparency = (S.Menu.Glass and 0.85 or 0.1)
+    WmText.TextColor3 = Color3.fromRGB(255, 255, 255)
 end
 
 local function ApplyWatermarkPos()
@@ -715,7 +647,7 @@ OpenButton.Position = UDim2.new(0.05, 0, 0.5, 0)
 OpenButton.BackgroundColor3 = CurrentBg
 OpenButton.BackgroundTransparency = 0.15
 OpenButton.BorderSizePixel = 0
-OpenButton.Text = "M"; OpenButton.TextColor3 = CurrentText; OpenButton.TextSize = 26
+OpenButton.Text = "M"; OpenButton.TextColor3 = Color3.fromRGB(255,255,255); OpenButton.TextSize = 26
 OpenButton.Font = Enum.Font.GothamBold; OpenButton.AutoButtonColor = false
 OpenButton.Visible = false
 OpenButton.ZIndex = 100
@@ -751,7 +683,7 @@ local Main = Instance.new("Frame")
 Main.Size = UDim2.new(0, 620, 0, 500)
 Main.Position = UDim2.new(0.5, -310, 0.5, -250)
 Main.BackgroundColor3 = CurrentBg
-Main.BackgroundTransparency = 0.45
+Main.BackgroundTransparency = 0.55
 Main.BorderSizePixel = 0
 Main.Visible = false
 Main.ClipsDescendants = true
@@ -764,7 +696,8 @@ local Title = Instance.new("Frame")
 Title.Size = UDim2.new(1,0,0,42); Title.BackgroundTransparency = 1; Title.ZIndex = 51; Title.Parent = Main
 local TText = Instance.new("TextLabel")
 TText.Size = UDim2.new(1,-30,1,0); TText.Position = UDim2.new(0,20,0,0); TText.BackgroundTransparency = 1
-TText.Text = "MasterBAN-Sense   ·   INS to toggle"; TText.TextColor3 = CurrentText; TText.TextSize = 15
+TText.Text = "MasterBAN-Sense   ·   INS to toggle"; TText.TextColor3 = Color3.fromRGB(255,255,255); TText.TextSize = 15
+TText.TextStrokeTransparency = 0.5
 TText.Font = Enum.Font.GothamBold; TText.TextXAlignment = Enum.TextXAlignment.Left
 TText.ZIndex = 51; TText.Parent = Title
 
@@ -866,7 +799,7 @@ local function MakeSlider(parent, text, y, mn, mx, getter, setter, ownerToggle)
     f.BackgroundTransparency = 1; f.ZIndex = 53; f.Parent = parent
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(1,0,0,16); l.BackgroundTransparency = 1
-    l.Text = text .. ":  " .. getter(); l.TextColor3 = Color3.fromRGB(200,200,220)
+    l.Text = text .. ":  " .. getter(); l.TextColor3 = Color3.fromRGB(220,220,240)
     l.TextSize = 11; l.Font = Enum.Font.Gotham; l.TextXAlignment = Enum.TextXAlignment.Left
     l.ZIndex = 53; l.Parent = f
     local tr = Instance.new("TextButton")
@@ -916,7 +849,7 @@ local function MakeColor(parent, text, y, getter, setter, ownerToggle)
     f.BackgroundTransparency = 1; f.ZIndex = 53; f.Parent = parent
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0,130,1,0); l.BackgroundTransparency = 1
-    l.Text = text; l.TextColor3 = Color3.fromRGB(200,200,220); l.TextSize = 11
+    l.Text = text; l.TextColor3 = Color3.fromRGB(220,220,240); l.TextSize = 11
     l.Font = Enum.Font.Gotham; l.TextXAlignment = Enum.TextXAlignment.Left
     l.ZIndex = 53; l.Parent = f
     local cb = Instance.new("TextButton")
@@ -943,7 +876,7 @@ local function MakeDropdown(parent, text, y, options, getter, setter, ownerToggl
     f.BackgroundTransparency = 1; f.ZIndex = 53; f.Parent = parent
     local l = Instance.new("TextLabel")
     l.Size = UDim2.new(0,100,1,0); l.BackgroundTransparency = 1
-    l.Text = text; l.TextColor3 = Color3.fromRGB(200,200,220); l.TextSize = 11
+    l.Text = text; l.TextColor3 = Color3.fromRGB(220,220,240); l.TextSize = 11
     l.Font = Enum.Font.Gotham; l.TextXAlignment = Enum.TextXAlignment.Left
     l.ZIndex = 53; l.Parent = f
     local b = Instance.new("TextButton")
@@ -984,20 +917,19 @@ RefreshVisibility = function()
     if toggleRows["Aimbot"] then for _, o in ipairs(toggleRows["Aimbot"]) do o.Visible = S.Aimbot.Enabled end end
     if toggleRows["Trigger"] then for _, o in ipairs(toggleRows["Trigger"]) do o.Visible = S.Trigger.Enabled end end
     if toggleRows["WorldColor"] then for _, o in ipairs(toggleRows["WorldColor"]) do o.Visible = S.World.ColorEnabled end end
-    if toggleRows["WeaponChams"] then for _, o in ipairs(toggleRows["WeaponChams"]) do o.Visible = S.Local.WeaponChams end end
     if toggleRows["Speed"] then for _, o in ipairs(toggleRows["Speed"]) do o.Visible = S.Movement.Speed end end
     if toggleRows["JumpPower"] then for _, o in ipairs(toggleRows["JumpPower"]) do o.Visible = S.Movement.JumpPower end end
 end
 
+-- ВКЛАДКИ (LOCAL убран)
 CreateTab("ESP", 6)
 CreateTab("AIM", 36)
 CreateTab("WEAPON", 66)
 CreateTab("WORLD", 96)
-CreateTab("LOCAL", 126)
-CreateTab("MOVEMENT", 156)
-CreateTab("MENU", 186)
+CreateTab("MOVEMENT", 126)
+CreateTab("MENU", 156)
 
--- ESP TAB
+-- ESP
 CreateContent("ESP")
 local espScroll = NewScroll(tabContents["ESP"])
 MakeToggle(espScroll, "ESP", 10, function() return S.ESP.Enabled end, function(v) S.ESP.Enabled=v end)
@@ -1019,15 +951,14 @@ MakeSlider(espScroll, "Head Dot Radius", 640, 1, 15, function() return S.ESP.Hea
 MakeToggle(espScroll, "Name", 690, function() return S.ESP.Name end, function(v) S.ESP.Name=v end, "ESP")
 MakeToggle(espScroll, "Health", 728, function() return S.ESP.Health end, function(v) S.ESP.Health=v end, "ESP")
 MakeToggle(espScroll, "Distance", 766, function() return S.ESP.Distance end, function(v) S.ESP.Distance=v end, "ESP")
-MakeToggle(espScroll, "Weapon", 804, function() return S.ESP.Weapon end, function(v) S.ESP.Weapon=v end, "ESP")
-MakeToggle(espScroll, "Tracer", 842, function() return S.ESP.Tracer end, function(v) S.ESP.Tracer=v end, "ESP")
-MakeColor(espScroll, "Tracer Color", 880, function() return S.ESP.TracerColor end, function(v) S.ESP.TracerColor=v end, "ESP")
-MakeSlider(espScroll, "Tracer Thickness x10", 924, 5, 40, function() return math.floor(S.ESP.TracerThickness*10) end, function(v) S.ESP.TracerThickness=v/10 end, "ESP")
-MakeDropdown(espScroll, "Tracer Origin", 974, {"Bottom", "Top", "Mouse", "Center"}, function() return S.ESP.TracerOrigin end, function(v) S.ESP.TracerOrigin=v end, "ESP")
-MakeColor(espScroll, "ESP Color", 1014, function() return S.ESP.Color end, function(v) S.ESP.Color=v end, "ESP")
-MakeToggle(espScroll, "Ignore AFK Players", 1058, function() return S.ESP.IgnoreAFK end, function(v) S.ESP.IgnoreAFK=v end, "ESP")
-MakeSlider(espScroll, "AFK Seconds", 1096, 1, 15, function() return S.ESP.AFKSeconds end, function(v) S.ESP.AFKSeconds=v; AFKSeconds=v end, "ESP")
-MakeSlider(espScroll, "Max Distance", 1146, 50, 3000, function() return S.ESP.MaxDistance end, function(v) S.ESP.MaxDistance=v end, "ESP")
+MakeToggle(espScroll, "Tracer", 804, function() return S.ESP.Tracer end, function(v) S.ESP.Tracer=v end, "ESP")
+MakeColor(espScroll, "Tracer Color", 842, function() return S.ESP.TracerColor end, function(v) S.ESP.TracerColor=v end, "ESP")
+MakeSlider(espScroll, "Tracer Thickness x10", 886, 5, 40, function() return math.floor(S.ESP.TracerThickness*10) end, function(v) S.ESP.TracerThickness=v/10 end, "ESP")
+MakeDropdown(espScroll, "Tracer Origin", 936, {"Bottom", "Top", "Mouse", "Center"}, function() return S.ESP.TracerOrigin end, function(v) S.ESP.TracerOrigin=v end, "ESP")
+MakeColor(espScroll, "ESP Color", 976, function() return S.ESP.Color end, function(v) S.ESP.Color=v end, "ESP")
+MakeToggle(espScroll, "Ignore AFK Players", 1020, function() return S.ESP.IgnoreAFK end, function(v) S.ESP.IgnoreAFK=v end, "ESP")
+MakeSlider(espScroll, "AFK Seconds", 1058, 1, 15, function() return S.ESP.AFKSeconds end, function(v) S.ESP.AFKSeconds=v; AFKSeconds=v end, "ESP")
+MakeSlider(espScroll, "Max Distance", 1108, 50, 3000, function() return S.ESP.MaxDistance end, function(v) S.ESP.MaxDistance=v end, "ESP")
 
 -- AIM
 CreateContent("AIM")
@@ -1038,7 +969,7 @@ MakeSlider(aimTab, "FOV", 86, 1, 100, function() return S.Aimbot.FOV end, functi
 MakeColor(aimTab, "FOV Color", 136, function() return S.Aimbot.FOVColor end, function(v) S.Aimbot.FOVColor=v end, "Aimbot")
 MakeSlider(aimTab, "Smooth x100", 180, 1, 50, function() return math.floor(S.Aimbot.Smoothness*100) end, function(v) S.Aimbot.Smoothness=v/100 end, "Aimbot")
 
--- WEAPON (только TriggerBot, Hitbox убран)
+-- WEAPON
 CreateContent("WEAPON")
 local wTab = tabContents["WEAPON"]
 MakeToggle(wTab, "TriggerBot", 10, function() return S.Trigger.Enabled end, function(v) S.Trigger.Enabled=v end)
@@ -1052,14 +983,6 @@ MakeColor(wWorld, "World Tint", 48, function() return S.World.ColorTint end, fun
 MakeSlider(wWorld, "Saturation x100", 92, -100, 100, function() return math.floor(S.World.Saturation*100) end, function(v) S.World.Saturation=v/100 end, "WorldColor")
 MakeSlider(wWorld, "Contrast x100", 142, -100, 100, function() return math.floor(S.World.Contrast*100) end, function(v) S.World.Contrast=v/100 end, "WorldColor")
 MakeSlider(wWorld, "Brightness x100", 192, -100, 100, function() return math.floor(S.World.Brightness*100) end, function(v) S.World.Brightness=v/100 end, "WorldColor")
-
--- LOCAL
-CreateContent("LOCAL")
-local lTab = tabContents["LOCAL"]
-MakeToggle(lTab, "Weapon Chams", 10, function() return S.Local.WeaponChams end, function(v) S.Local.WeaponChams=v end)
-MakeColor(lTab, "Color", 48, function() return S.Local.SelfColor end, function(v) S.Local.SelfColor=v end, "WeaponChams")
-MakeToggle(lTab, "Fill", 92, function() return S.Local.SelfFill end, function(v) S.Local.SelfFill=v end, "WeaponChams")
-MakeToggle(lTab, "Outline", 130, function() return S.Local.SelfOutline end, function(v) S.Local.SelfOutline=v end, "WeaponChams")
 
 -- MOVEMENT
 CreateContent("MOVEMENT")
@@ -1077,7 +1000,7 @@ local menuTab = tabContents["MENU"]
 MakeToggle(menuTab, "Liquid Glass", 10, function() return S.Menu.Glass end, function(v)
     S.Menu.Glass = v
     if v then
-        Main.BackgroundTransparency = 0.45
+        Main.BackgroundTransparency = 0.55
         ms.Transparency = 0.85
     else
         Main.BackgroundTransparency = 0.05
@@ -1096,16 +1019,13 @@ MakeColor(menuTab, "Background Color", 172, function() return S.Menu.BgColor end
     S.Menu.BgColor = v; CurrentBg = v
     Main.BackgroundColor3 = v; Watermark.BackgroundColor3 = v
     OpenButton.BackgroundColor3 = v
+    ApplyWatermarkStyle()
 end)
 MakeColor(menuTab, "Stroke Color", 208, function() return S.Menu.StrokeColor end, function(v)
     S.Menu.StrokeColor = v; CurrentStroke = v
     ms.Color = v; wms.Color = v; os2.Color = v
 end)
-MakeColor(menuTab, "Text Color", 244, function() return S.Menu.TextColor end, function(v)
-    S.Menu.TextColor = v; CurrentText = v
-    TText.TextColor3 = v; WmText.TextColor3 = v; OpenButton.TextColor3 = v
-end)
-MakeDropdown(menuTab, "Watermark Pos", 280, {"TopCenter", "TopLeft", "TopRight", "BottomCenter", "BottomLeft", "BottomRight"}, function() return S.Menu.WatermarkPos end, function(v)
+MakeDropdown(menuTab, "Watermark Pos", 244, {"TopCenter", "TopLeft", "TopRight", "BottomCenter", "BottomLeft", "BottomRight"}, function() return S.Menu.WatermarkPos end, function(v)
     S.Menu.WatermarkPos = v; ApplyWatermarkPos()
 end)
 
@@ -1119,7 +1039,6 @@ local isAnim = false
 local function ShowCursor()
     pcall(function()
         UIS.MouseIconEnabled = true
-        UIS.MouseBehavior = Enum.MouseBehavior.Default
     end)
 end
 
@@ -1138,7 +1057,7 @@ local function OpenMenu()
     ms.Transparency = 1
     Main.Position = UDim2.new(0.5, -310, 0.5, -240)
     local info = TweenInfo.new(0.4, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
-    TS:Create(Main, info, {BackgroundTransparency=(S.Menu.Glass and 0.45 or 0.05), Position=UDim2.new(0.5,-310,0.5,-250)}):Play()
+    TS:Create(Main, info, {BackgroundTransparency=(S.Menu.Glass and 0.55 or 0.05), Position=UDim2.new(0.5,-310,0.5,-250)}):Play()
     TS:Create(ms, info, {Transparency=(S.Menu.Glass and 0.85 or 0.1)}):Play()
     task.delay(0.4, function() isAnim = false end)
 end
@@ -1169,20 +1088,6 @@ UIS.InputBegan:Connect(function(input, gpe)
     if gpe then return end
     if input.KeyCode == Enum.KeyCode.Insert then
         if isOpen then CloseMenu() else OpenMenu() end
-    end
-end)
-
-task.spawn(function()
-    while true do
-        RunService.Heartbeat:Wait()
-        if isOpen then
-            pcall(function()
-                UIS.MouseIconEnabled = true
-                if UIS.MouseBehavior ~= Enum.MouseBehavior.Default then
-                    UIS.MouseBehavior = Enum.MouseBehavior.Default
-                end
-            end)
-        end
     end
 end)
 
@@ -1222,24 +1127,19 @@ tabButtons["ESP"].MouseButton1Click:Connect(function() SwitchTab("ESP") end)
 tabButtons["AIM"].MouseButton1Click:Connect(function() SwitchTab("AIM") end)
 tabButtons["WEAPON"].MouseButton1Click:Connect(function() SwitchTab("WEAPON") end)
 tabButtons["WORLD"].MouseButton1Click:Connect(function() SwitchTab("WORLD") end)
-tabButtons["LOCAL"].MouseButton1Click:Connect(function() SwitchTab("LOCAL") end)
 tabButtons["MOVEMENT"].MouseButton1Click:Connect(function() SwitchTab("MOVEMENT") end)
 tabButtons["MENU"].MouseButton1Click:Connect(function() SwitchTab("MENU") end)
 
 Players.PlayerRemoving:Connect(function(plr)
     LastPos[plr] = nil
     AFKTimer[plr] = nil
-    if EnemyChamsFill[plr] then
-        if EnemyChamsFill[plr].Parent then EnemyChamsFill[plr]:Destroy() end
-        EnemyChamsFill[plr] = nil
-    end
-    if EnemyChamsOutline[plr] then
-        if EnemyChamsOutline[plr].Parent then EnemyChamsOutline[plr]:Destroy() end
-        EnemyChamsOutline[plr] = nil
+    if EnemyHighlights[plr] then
+        if EnemyHighlights[plr].Parent then EnemyHighlights[plr]:Destroy() end
+        EnemyHighlights[plr] = nil
     end
 end)
 
--- ===== INTRO =====
+-- INTRO
 local Mask = Instance.new("Frame")
 Mask.Size = UDim2.new(0, 0, 1, 0); Mask.Position = UDim2.new(0, 0, 0, 0)
 Mask.BackgroundColor3 = Color3.fromRGB(0, 0, 0); Mask.BackgroundTransparency = 0.1
@@ -1298,6 +1198,7 @@ task.spawn(function()
     TS:Create(Mask, TweenInfo.new(0.6, Enum.EasingStyle.Quart, Enum.EasingDirection.In), {Position = UDim2.new(0, 0, -1, 0), BackgroundTransparency = 1}):Play()
     task.wait(0.7)
     Watermark.Visible = true
+    ApplyWatermarkStyle()
     ApplyWatermarkPos()
     OpenButton.Visible = true
     OpenButton.Position = UDim2.new(-0.1, 0, 0.5, 0)
@@ -1306,7 +1207,7 @@ task.spawn(function()
     Mask:Destroy(); IntroContainer:Destroy(); ByText:Destroy()
 end)
 
--- ===== MAIN LOOP =====
+-- MAIN LOOP
 RunService.RenderStepped:Connect(function(dt)
     FrameCount = FrameCount + 1
     if os.clock() - LastFPSTime >= 1 then
@@ -1317,8 +1218,6 @@ RunService.RenderStepped:Connect(function(dt)
     UpdateFOV()
     UpdateTrigger()
     UpdateWorldColor()
-    UpdateLocal()
-    UpdateVisWatermark()
 end)
 
 print("[+] MasterBAN-Sense loaded!")
